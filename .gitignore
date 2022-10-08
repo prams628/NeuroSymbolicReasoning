@@ -1,4 +1,7 @@
 .idea/
+nsr/
 data/
 digit/
 kakuro/utils/chromedriver
+*.ipynb
+*.npy
