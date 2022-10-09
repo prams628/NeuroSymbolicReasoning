@@ -5,3 +5,4 @@ kakuro/utils/chromedriver
 *.ipynb
 *.npy
 __pycache__/
+nsr/
