@@ -5,3 +5,4 @@ digit/
 kakuro/utils/chromedriver
 *.ipynb
 *.npy
+__pycache__/

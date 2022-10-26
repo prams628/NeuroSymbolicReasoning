@@ -10,23 +10,26 @@ from sklearn.model_selection import train_test_split
 SEED_VAL = 42
 np.random.seed(SEED_VAL)
 PATH = '../data/'
+IMAGE_LENGTH = 64
+IMAGE_WIDTH = 64
 
 # init empty arrays
-X = np.empty((0, 64, 64))
+X = np.empty((0, 1, IMAGE_LENGTH, IMAGE_WIDTH))
 y = np.array([])
 labels = os.listdir(PATH)
 
 for label in labels:
+    print(f'Processing {label}')
     individual_files = os.listdir(os.path.join(PATH, label))
-    label_array = np.empty((0, 64, 64))
+    label_array = np.empty((0, 1, IMAGE_LENGTH, IMAGE_WIDTH))
     for _file in individual_files:
         # read the image in grayscale mode
         img = cv2.imread(os.path.join(PATH, label, _file), 0)
 
-        # normalise the data between 0 to 1
+        # normalise the data between 0 and 1
         img = img / 255
 
-        label_array = np.append(label_array, np.reshape(img, (1, 64, 64)), axis=0)
+        label_array = np.append(label_array, np.reshape(img, (1, 1, IMAGE_LENGTH, IMAGE_WIDTH)), axis=0)
 
     X = np.append(X, label_array, axis=0)
     y = np.append(y, np.array([int(label) for _ in range(len(individual_files))]))
