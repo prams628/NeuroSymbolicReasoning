@@ -1,7 +1,6 @@
 import argparse
 import base64
 import os
-import sys
 import time
 
 from selenium import webdriver
@@ -15,6 +14,18 @@ class Constants:
     GENERATE_BUTTON_XPATH = '/html/body/div/div[2]/div[1]/input[8]'
     CANVAS_XPATH = '/html/body/div/div[2]/div[4]/canvas'
     SLEEP_TIME = 3
+    DIFFICULTY_XPATHS = {
+        'easy': '/html/body/div/div[2]/div[1]/input[3]',
+        'medium': '/html/body/div/div[2]/div[1]/input[4]',
+        'hard': '/html/body/div/div[2]/div[1]/input[5]'
+    }
+
+
+class FetchDataError(Exception):
+    '''
+    A custom error class to track errors raised in the process of fetching the data
+    '''
+    pass
 
 
 def get_driver():
@@ -26,7 +37,7 @@ def get_driver():
     return driver
 
 
-def generate_data(driver, number_of_instances: int, folder: str):
+def generate_data(driver: webdriver, difficulty: str, number_of_instances: int, folder: str):
     """
     This function orchestrates the procedure of generating the data. The procedure can be summarised as follows:
         1. Iterate the data generation loop for the number of instances specified.
@@ -40,6 +51,12 @@ def generate_data(driver, number_of_instances: int, folder: str):
     """
     # fetch the page
     driver.get('https://www.kakuro-online.com/generator')
+
+    # set the difficulty of the puzzle
+    difficulty_radio_button = driver.find_element(
+        By.XPATH, Constants.DIFFICULTY_XPATHS[difficulty]
+    )
+    difficulty_radio_button.click()
 
     if not os.path.exists(folder):
         os.mkdir(folder)
@@ -66,7 +83,7 @@ def generate_data(driver, number_of_instances: int, folder: str):
             print(f'{idx} instances generated')
 
 
-def close_driver(driver):
+def close_driver(driver: webdriver):
     """
     This function closes the driver which has been opened by the get_driver function.
     :param driver: A selenium webdriver
@@ -77,15 +94,30 @@ def close_driver(driver):
 
 # now begins the main part
 parser = argparse.ArgumentParser()
-parser.add_argument('-c', '--count', help='Number of data points which are to be generated', type=int)
+basic = parser.add_argument_group('basic')
+basic.add_argument('-c', '--count', help='Number of data points which are to be generated', type=int)
+basic.add_argument('-d', '--difficulty', help='Difficulty of the problem to be extracted', default='easy')
+
+split = parser.add_argument_group('split')
+split.add_argument('-e', '--easy', help='Number of easy samples to fetch', default=0, type=int)
+split.add_argument('-m', '--medium', help='Number of medium samples to fetch', default=0, type=int)
+split.add_argument('-a', '--hard', help='Number of hard samples to fetch', default=0, type=int)
 
 # parse the arguments supplied
 args = parser.parse_args()
-if args.count is None:
-    print('Argument count has to be supplied')
-    sys.exit(1)
-
-data_folder = '../data'
+data_folder = '../data/puzzles/'
 webdriver = get_driver()
-generate_data(webdriver, args.count, data_folder)
+
+if args.count:
+    print('basic section')
+    generate_data(webdriver, args.difficulty, args.count, data_folder)
+elif args.easy or args.medium or args.hard:
+    print('split section')
+    generate_data(webdriver, 'easy', args.easy, os.path.join(data_folder, args.difficulty))
+    generate_data(webdriver, 'medium', args.medium, data_folder)
+    generate_data(webdriver, 'hard', args.hard, data_folder)
+else:
+    print('Argument count has to be supplied')
+    raise FetchDataError
+
 close_driver(webdriver)
