@@ -19,6 +19,8 @@ class Constants:
         'medium': '/html/body/div/div[2]/div[1]/input[4]',
         'hard': '/html/body/div/div[2]/div[1]/input[5]'
     }
+    WIDTH_TEXT_XPATH = '/html/body/div/div[2]/div[1]/input[1]'
+    HEIGHT_TEXT_XPATH = '/html/body/div/div[2]/div[1]/input[2]'
 
 
 class FetchDataError(Exception):
@@ -37,7 +39,8 @@ def get_driver():
     return driver
 
 
-def generate_data(driver: webdriver, difficulty: str, number_of_instances: int, folder: str):
+def generate_data(driver: webdriver, difficulty: str, number_of_instances: int, folder: str,
+                  width: str, height: str):
     """
     This function orchestrates the procedure of generating the data. The procedure can be summarised as follows:
         1. Iterate the data generation loop for the number of instances specified.
@@ -57,6 +60,14 @@ def generate_data(driver: webdriver, difficulty: str, number_of_instances: int, 
         By.XPATH, Constants.DIFFICULTY_XPATHS[difficulty]
     )
     difficulty_radio_button.click()
+
+    width_element = driver.find_element(By.XPATH, Constants.WIDTH_TEXT_XPATH)
+    width_element.clear()
+    width_element.send_keys(width)
+
+    height_element = driver.find_element(By.XPATH, Constants.HEIGHT_TEXT_XPATH)
+    height_element.clear()
+    height_element.send_keys(height)
 
     if not os.path.exists(folder):
         os.mkdir(folder)
@@ -103,19 +114,20 @@ split.add_argument('-e', '--easy', help='Number of easy samples to fetch', defau
 split.add_argument('-m', '--medium', help='Number of medium samples to fetch', default=0, type=int)
 split.add_argument('-a', '--hard', help='Number of hard samples to fetch', default=0, type=int)
 
+parser.add_argument('-w', '--width', help='The width of the puzzle to be generated', default='9')
+parser.add_argument('-H', '--height', help='The height of the puzzle to be generated', default='9')
+
 # parse the arguments supplied
 args = parser.parse_args()
 data_folder = '../data/puzzles/'
 webdriver = get_driver()
 
 if args.count:
-    print('basic section')
-    generate_data(webdriver, args.difficulty, args.count, data_folder)
+    generate_data(webdriver, args.difficulty, args.count, os.path.join(data_folder, args.difficulty), args.width, args.height)
 elif args.easy or args.medium or args.hard:
-    print('split section')
-    generate_data(webdriver, 'easy', args.easy, os.path.join(data_folder, args.difficulty))
-    generate_data(webdriver, 'medium', args.medium, data_folder)
-    generate_data(webdriver, 'hard', args.hard, data_folder)
+    generate_data(webdriver, 'easy', args.easy, os.path.join(data_folder, 'easy'), args.width, args.height)
+    generate_data(webdriver, 'medium', args.medium, os.path.join(data_folder, 'medium'), args.width, args.height)
+    generate_data(webdriver, 'hard', args.hard, os.path.join(data_folder, 'hard'), args.width, args.height)
 else:
     print('Argument count has to be supplied')
     raise FetchDataError
