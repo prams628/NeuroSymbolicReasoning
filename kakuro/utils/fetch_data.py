@@ -5,7 +5,8 @@ import time
 
 from selenium import webdriver
 from selenium.webdriver.common.by import By
-
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support.ui import WebDriverWait
 
 class Constants:
     """
@@ -13,7 +14,7 @@ class Constants:
     """
     GENERATE_BUTTON_XPATH = '/html/body/div/div[2]/div[1]/input[8]'
     CANVAS_XPATH = '/html/body/div/div[2]/div[4]/canvas'
-    SLEEP_TIME = 3
+    SLEEP_TIME = 10
     DIFFICULTY_XPATHS = {
         'easy': '/html/body/div/div[2]/div[1]/input[3]',
         'medium': '/html/body/div/div[2]/div[1]/input[4]',
@@ -30,12 +31,15 @@ class FetchDataError(Exception):
     pass
 
 
-def get_driver():
+def get_driver(headless=False):
     """
     Initialises a webdriver object for chrome
     :return: webdriver
     """
-    driver = webdriver.Chrome()
+    options = webdriver.ChromeOptions()
+    if headless:
+        options.add_argument('--headless')
+    driver = webdriver.Chrome(options=options)
     return driver
 
 
@@ -72,7 +76,14 @@ def generate_data(driver: webdriver, difficulty: str, number_of_instances: int, 
     if not os.path.exists(folder):
         os.mkdir(folder)
 
-    for idx in range(number_of_instances):
+    # init a web driver wait object
+    _ = WebDriverWait(driver, Constants.SLEEP_TIME).\
+            until(EC.presence_of_element_located((
+                By.XPATH, Constants.GENERATE_BUTTON_XPATH
+            )))
+
+    start_idx = len(os.listdir(folder))
+    for idx in range(start_idx, start_idx + number_of_instances):
         # get the button to generate a new puzzle
         generate_button = driver.find_element(By.XPATH, Constants.GENERATE_BUTTON_XPATH)
         generate_button.click()
@@ -116,20 +127,28 @@ split.add_argument('-a', '--hard', help='Number of hard samples to fetch', defau
 
 parser.add_argument('-w', '--width', help='The width of the puzzle to be generated', default='9')
 parser.add_argument('-H', '--height', help='The height of the puzzle to be generated', default='9')
+parser.add_argument('--headless', help='Add this parameter if you wish to not open a chrome window'
+                    'to always remain in focus during data generation.', action='store_true')
 
 # parse the arguments supplied
 args = parser.parse_args()
 data_folder = '../data/puzzles/'
-webdriver = get_driver()
+webdriver = get_driver(args.headless)
 
-if args.count:
-    generate_data(webdriver, args.difficulty, args.count, os.path.join(data_folder, args.difficulty), args.width, args.height)
-elif args.easy or args.medium or args.hard:
-    generate_data(webdriver, 'easy', args.easy, os.path.join(data_folder, 'easy'), args.width, args.height)
-    generate_data(webdriver, 'medium', args.medium, os.path.join(data_folder, 'medium'), args.width, args.height)
-    generate_data(webdriver, 'hard', args.hard, os.path.join(data_folder, 'hard'), args.width, args.height)
-else:
-    print('Argument count has to be supplied')
-    raise FetchDataError
+try:
+    if args.count:
+        generate_data(webdriver, args.difficulty, args.count, os.path.join(data_folder, args.difficulty), args.width, args.height)
+    elif args.easy or args.medium or args.hard:
+        generate_data(webdriver, 'easy', args.easy, os.path.join(data_folder, 'easy'), args.width, args.height)
+        generate_data(webdriver, 'medium', args.medium, os.path.join(data_folder, 'medium'), args.width, args.height)
+        generate_data(webdriver, 'hard', args.hard, os.path.join(data_folder, 'hard'), args.width, args.height)
+    else:
+        print('Argument count has to be supplied')
+        raise FetchDataError
+except FetchDataError as fde:
+    close_driver(webdriver)
+    raise fde
+finally:
+    pass
 
 close_driver(webdriver)
