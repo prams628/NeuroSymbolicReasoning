@@ -14,7 +14,11 @@ from utils.generate_puzzle_blocks import generate_puzzle_blocks
 DATA_PATH = '../data/puzzles/'
 MAX_HINTS = 26
 PUZZLE_SIZE = 9
-prediction_to_num = {} # this dictionary will store the numbers which are predicted with a different ascii value.
+prediction_to_num = {
+    108: 1,
+    1073: 6,
+    115: 8
+} # this dictionary will store the numbers which are predicted with a different ascii value.
 
 def read_puzzle_from_image(img: np.ndarray) -> np.ndarray:
     """
@@ -67,15 +71,16 @@ def read_puzzle_from_image(img: np.ndarray) -> np.ndarray:
 
     return puzzle_matrix
 
+final_all_blocks = np.empty((0, MAX_HINTS, PUZZLE_SIZE))
 
 # iterate over every puzzle and generate the puzzle matrix
-all_blocks = np.array([])
-
 for puzzle_difficulty in os.listdir(DATA_PATH):
+    all_blocks = np.array([])
+    print(f'Processing puzzles with difficulty: {puzzle_difficulty}')
     puzzle_images = os.listdir(os.path.join(DATA_PATH, puzzle_difficulty))
     for idx, puzzle in enumerate(puzzle_images):
-        if idx > 0 and idx % 10 == 0:
-            print(f'{idx} puzzles processed.')
+        print(f'{idx} puzzles processed.', end=' ')
+        print(os.path.join(DATA_PATH, puzzle_difficulty, puzzle))
         img = cv2.imread(
             os.path.join(DATA_PATH, puzzle_difficulty, puzzle),
             cv2.IMREAD_GRAYSCALE
@@ -99,12 +104,13 @@ for puzzle_difficulty in os.listdir(DATA_PATH):
         else:
             blocks = np.reshape(blocks, (1, *blocks.shape))
             all_blocks = np.vstack((all_blocks, blocks))
+    final_all_blocks = np.vstack((final_all_blocks, all_blocks))
 
 # save the vectors generated
 if not os.path.exists('../data/vectors'):
     os.mkdir('../data/vectors')
 
-tensors = torch.from_numpy(all_blocks)
+tensors = torch.from_numpy(final_all_blocks)
 torch.save(tensors, '../data/vectors/basic_tensors.pt')
 
 print(prediction_to_num)
