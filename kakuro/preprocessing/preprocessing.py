@@ -1,4 +1,5 @@
 # import the necessary libraries
+import argparse
 import os
 
 import cv2
@@ -14,7 +15,58 @@ from utils.generate_puzzle_blocks import generate_puzzle_blocks
 DATA_PATH = '../data/puzzles/'
 MAX_HINTS = 26
 PUZZLE_SIZE = 9
-prediction_to_num = {} # this dictionary will store the numbers which are predicted with a different ascii value.
+prediction_to_num = {
+    108: 1,
+    1073: 6,
+    115: 8
+} # this dictionary will store the numbers which are predicted with a different ascii value.
+
+
+def create_arg_parser() -> argparse.ArgumentParser:
+    """
+    Creates an argument parser and returns the parser after adding the
+    required arguments. If the append argument is passed in the CLI,
+    all the other params are REQUIRED. If append argument isn't passed,
+    the other arguments, even if passed, shall be ignored.
+    """
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '--append', '-a',
+        help='A mode where only required data is extracted and appended to the'
+        'existing data',
+        action='store_true'
+    )
+    parser.add_argument(
+        '--easy-start', help='The puzzle number from which easy puzzles should'
+        'be preprocessed',
+        type=int
+    )
+    parser.add_argument(
+        '--medium-start', help='The puzzle number from which medium puzzles'
+        'should be preprocessed',
+        type=int
+    )
+    parser.add_argument(
+        '--hard-start', help='The puzzle number from which hard puzzles should'
+        'be preprocessed',
+        type=int
+    )
+    return parser
+
+
+def get_start_index(args, difficulty):
+    if args.append:
+        if difficulty == 'easy':
+            return args.easy_start
+        elif difficulty == 'medium':
+            return args.medium_start
+        elif difficulty == 'hard':
+            return args.hard_start
+        else:
+            raise ValueError(f'The value of difficulty "{difficulty}" is unknown.'
+                              ' Allowed values are: easy, medium, hard')
+    return 0
+
 
 def read_puzzle_from_image(img: np.ndarray) -> np.ndarray:
     """
@@ -68,14 +120,32 @@ def read_puzzle_from_image(img: np.ndarray) -> np.ndarray:
     return puzzle_matrix
 
 
-# iterate over every puzzle and generate the puzzle matrix
-all_blocks = np.array([])
+parser = create_arg_parser()
+args = parser.parse_args()
+if args.append:
+    final_all_blocks = torch.load('../data/vectors/basic_tensors.pt').numpy()
+else:
+    final_all_blocks = np.empty((0, MAX_HINTS, PUZZLE_SIZE))
 
+# iterate over every puzzle and generate the puzzle matrix
 for puzzle_difficulty in os.listdir(DATA_PATH):
-    puzzle_images = os.listdir(os.path.join(DATA_PATH, puzzle_difficulty))
+    all_blocks = np.array([])
+    print(f'Processing puzzles with difficulty: {puzzle_difficulty}')
+
+    # get the names of the puzzles in the folder and sort them based on their name
+    puzzle_images = sorted(
+        os.listdir(os.path.join(DATA_PATH, puzzle_difficulty)),
+        key=lambda x: int(x.split('.')[0].split('_')[1])
+    )
+
+    # if the program is running in the append mode, then get the start index of
+    # the current difficulty and start the preprocessing from that point.
+    puzzle_images = puzzle_images[get_start_index(args, puzzle_difficulty): ]
+
+    # iterate over every puzzle to generate the matrix and append it
     for idx, puzzle in enumerate(puzzle_images):
-        if idx > 0 and idx % 10 == 0:
-            print(f'{idx} puzzles processed.')
+        print(f'{idx} puzzles processed.', end=' ')
+        print(os.path.join(DATA_PATH, puzzle_difficulty, puzzle))
         img = cv2.imread(
             os.path.join(DATA_PATH, puzzle_difficulty, puzzle),
             cv2.IMREAD_GRAYSCALE
@@ -99,12 +169,11 @@ for puzzle_difficulty in os.listdir(DATA_PATH):
         else:
             blocks = np.reshape(blocks, (1, *blocks.shape))
             all_blocks = np.vstack((all_blocks, blocks))
+    final_all_blocks = np.vstack((final_all_blocks, all_blocks))
 
 # save the vectors generated
 if not os.path.exists('../data/vectors'):
     os.mkdir('../data/vectors')
 
-tensors = torch.from_numpy(all_blocks)
+tensors = torch.from_numpy(final_all_blocks)
 torch.save(tensors, '../data/vectors/basic_tensors.pt')
-
-print(prediction_to_num)
